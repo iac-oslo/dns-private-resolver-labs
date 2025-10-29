@@ -1,7 +1,7 @@
 targetScope = 'subscription'
 param parLocation string
 
-import { getResourcePrefix, hubAddressRange, adminUsername, adminPassword } from 'variables.bicep'
+import { getResourcePrefix, hubAddressRange, adminUsername, adminPassword, spoke1VNetAddressRange } from 'variables.bicep'
 
 var resourcePrefix = getResourcePrefix(parLocation)
 var resourceGroupName = 'rg-${resourcePrefix}'
@@ -39,45 +39,6 @@ module hub 'modules/hub.bicep' = {
   }
 }
 
-module modHubVM 'br/public:avm/res/compute/virtual-machine:0.20.0' = {
-  name: 'deploy-hub-vm-${parLocation}'
-  scope: resourceGroup(resourceGroupName)
-  params: {
-    adminUsername: adminUsername
-    adminPassword: adminPassword
-    imageReference: {
-      offer: '0001-com-ubuntu-server-jammy'
-      publisher: 'Canonical'
-      sku: '22_04-lts-gen2'
-      version: 'latest'
-    }
-    name: 'vm-hub-${parLocation}'
-    nicConfigurations: [
-      {
-        ipConfigurations: [
-          {
-            name: 'ipconfig01'
-            subnetResourceId: hub.outputs.workloadSubnetResourceId
-          }
-        ]
-        nicSuffix: '-nic-01'
-        enableAcceleratedNetworking: false
-      }
-    ]
-    osDisk: {
-      caching: 'ReadWrite'
-      diskSizeGB: 128
-      managedDisk: {
-        storageAccountType: 'Standard_LRS'
-      }
-    }
-    osType: 'Linux'
-    vmSize: 'Standard_B1s'
-    availabilityZone: -1
-    location: parLocation
-    enableTelemetry: false
-  }
-}
 
 module bastion 'modules/bastion.bicep' = {
   name: 'deploy-bastion-${resourcePrefix}'
@@ -94,19 +55,48 @@ module firewall 'modules/firewall.bicep' = {
   params: {
     parLocation: parLocation
     hubVnetId: hub.outputs.hubVnetId
+    workspaceResourceId: workspace.outputs.resourceId
   }
 }
 
-module spokes 'modules/spoke.bicep' = [for i in range(1, 2): {
-  name: 'deploy-spoke${i}-${resourcePrefix}'
+module spokes 'modules/spoke.bicep' = {
+  name: 'deploy-spoke1-${resourcePrefix}'
   scope: resourceGroup(resourceGroupName)
   params: {
-    parIndex: i
+    parIndex: 1
     parLocation: parLocation
-    parAddressRange: '10.9.${i}.0/24'
+    parAddressRange: spoke1VNetAddressRange
     adminUsername: adminUsername
     adminPassword: adminPassword
     hubVnetId: hub.outputs.hubVnetId
+    firewallPrivateIP: firewall.outputs.firewallPrivateIP
   }  
-}]
+}
 
+module dnsResolver 'modules/dns-resolver.bicep' = {
+  name: 'deploy-dns-resolver-${resourcePrefix}'
+  scope: resourceGroup(resourceGroupName)
+  params: {
+    parLocation: parLocation
+    hubVnetId: hub.outputs.hubVnetId
+    inboundSubnetId: hub.outputs.dnsResolverInboundSubnetResourceId
+    outboundSubnetId: hub.outputs.dnsResolverOutboundSubnetResourceId
+  }
+}
+
+module privateDnsZone 'modules/private-dns-zones.bicep' = {
+  name: 'deploy-private-dns-zones-${parLocation}'
+  scope: resourceGroup(resourceGroupName)
+  params: {
+    hubVNetId: hub.outputs.hubVnetId
+  }
+}
+
+module dnsServer 'modules/dns-server.bicep' = {
+  name: 'deploy-dns-server-${resourcePrefix}'
+  scope: resourceGroup(resourceGroupName)
+  params: {
+    parLocation: parLocation
+    hubVnetId: hub.outputs.hubVnetId
+  }
+}

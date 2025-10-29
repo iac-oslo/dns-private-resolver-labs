@@ -7,8 +7,27 @@ param adminUsername string
 @secure()
 param adminPassword string
 param hubVnetId string
+param firewallPrivateIP string
 
 var varVNetName = 'vnet-spoke${parIndex}-${parLocation}'
+
+resource spoke1Route 'Microsoft.Network/routeTables@2021-02-01' = {
+  name: 'spoke1-udr'
+  location: resourceGroup().location
+  properties: {
+    disableBgpRoutePropagation: false
+    routes: [
+      {
+        name: 'spoke-udr'
+        properties: {
+          addressPrefix: '0.0.0.0/0'
+          nextHopType: 'VirtualAppliance'
+          nextHopIpAddress: firewallPrivateIP
+        }
+      }
+    ]
+  }
+}
 
 module modVNet 'br/public:avm/res/network/virtual-network:0.7.0' = {
   name: 'deploy-${varVNetName}-${parIndex}'
@@ -20,9 +39,18 @@ module modVNet 'br/public:avm/res/network/virtual-network:0.7.0' = {
     location: parLocation
     subnets: [
       {
-        addressPrefixes: [parAddressRange]
+        addressPrefixes: [cidrSubnet(parAddressRange, 25, 0)]
         name: 'subnet-workload'
+        routeTableResourceId: spoke1Route.id
       }
+      {
+        addressPrefixes: [cidrSubnet(parAddressRange, 25, 1)]
+        name: 'subnet-ple'
+        routeTableResourceId: spoke1Route.id
+      }
+    ]
+    dnsServers: [
+      firewallPrivateIP
     ]
     peerings: [
       {
@@ -69,22 +97,11 @@ module modVirtualMachine 'br/public:avm/res/compute/virtual-machine:0.20.0' = {
       caching: 'ReadWrite'      
       diskSizeGB: 128
       managedDisk: {
-        storageAccountType: 'StandardSSD_LRS'
+        storageAccountType: 'Standard_LRS'
       }
     }
-    extensionCustomScriptConfig: {
-      name: 'install-k6'
-      settings: {
-        fileUris: [
-          'https://raw.githubusercontent.com/iac-oslo/azure-firewall-labs/refs/heads/main/iac/scripts/install-k6.sh'
-          'https://raw.githubusercontent.com/iac-oslo/azure-firewall-labs/refs/heads/main/iac/scripts/simulate-snat.js'
-        ]
-        commandToExecute: 'sh install-k6.sh'
-      }
-    }
-
     osType: 'Linux'
-    vmSize: 'Standard_D2ds_v6'
+    vmSize: 'Standard_B1s'
     availabilityZone: -1
     location: parLocation
     enableTelemetry: false
