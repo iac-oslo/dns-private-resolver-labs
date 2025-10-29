@@ -79,6 +79,32 @@ brew install git
 winget install -e --id Git.Git
 ```
 
-## Install Azure PowerShell module
+## Install required resource providers
 
-Make sure that the latest version of Azure PowerShell is installed. See [Install Azure PowerShell module](https://learn.microsoft.com/en-us/powershell/azure/install-azure-powershell) for detailed information.
+```powershell
+# Make sure that all Resource Providers are registered
+az provider register --namespace Microsoft.Insights
+az provider register --namespace Microsoft.Network
+az provider register --namespace Microsoft.OperationalInsights
+az provider register --namespace Microsoft.Storage
+az provider register --namespace Microsoft.Compute
+az feature register --namespace Microsoft.Compute --name EncryptionAtHost
+az provider register -n Microsoft.Compute
+```
+
+## Install required `az cli` extensions
+
+```powershell
+# install bastion extension
+az extension add -n bastion
+
+# install ssh extension
+az extension add -n ssh
+
+# install azure-firewall extension
+az extension add -n azure-firewall
+
+# install private-dns extension
+az extension add -n dns-resolver
+
+```
