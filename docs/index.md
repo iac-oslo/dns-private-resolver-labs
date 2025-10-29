@@ -5,7 +5,7 @@
 This is level 200 workshop that covers different aspects of working with [Azure DNS Private Resolver](https://learn.microsoft.com/en-us/azure/dns/dns-private-resolver-overview) where you will learn:
 
 - What is Azure DNS Private Resolver
-- How to resolve Azure private endpoint domains from on-premises networks
+- How to resolve Azure private endpoint domains from Azure and on-premises networks
 - How to resolve on-premises domains from Azure 
 - How to integrate Azure DNS into hub-spoke network architecture
 - How to integrate Azure DNS Private Resolver with Azure Firewall
